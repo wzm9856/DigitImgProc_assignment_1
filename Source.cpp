@@ -4,6 +4,7 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/imgproc/types_c.h>
 #include <iostream>
+
 using namespace std;
 using namespace cv;
 void getStatData(Mat src, int* hist, float* ave, float* var, bool isPrint) {
@@ -56,7 +57,7 @@ Mat getlut(int* hist) {
 		addArray[i] = addArray[i - 1] + hist[i];
 	}
 	//转换到调色盘
-	Mat lut(1, 256, CV_8U);
+	Mat lut(1, 256, CV_8UC1);
 	uchar* p = lut.ptr();
 	for (int i = 0; i < 256; i++) {
 		p[i] = addArray[i] / addArray[255] * 255;
@@ -80,11 +81,14 @@ int main()
 	cvtColor(image, image, CV_BGR2GRAY);
 	float average, variance;
 	double t = (double)getTickCount();
-	int hist[256];
+	int hist[256] = { 0 };
 	getStatData(image, hist, &average, &variance, 1);
 	t = ((double)getTickCount() - t) / getTickFrequency();
 	cout << "此段程序用时为" << t << "s" << endl;
-	waitKey();
+	waitKey(1);
 	Mat result1 = equalization(image);
 	imshow("Global equalization", result1);
+	waitKey(1);
+	system("pause");
+	return 0;
 }
