@@ -86,10 +86,9 @@ int main()
 	getStatData(image, hist, &average, &variance, 1);
 	t = ((double)getTickCount() - t) / getTickFrequency();
 	cout << "此段程序用时为" << t << "s" << endl;
-	waitKey(1);
+	waitKey(0);
 	Mat result1 = equalization(image);
 	imshow("Global equalization", result1);
-	waitKey(1);
-	system("pause");
+	waitKey(0);
 	return 0;
 }
