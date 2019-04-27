@@ -51,7 +51,7 @@ void getStatData(Mat src, int* hist, float* ave, float* var, bool isPrint) {
 
 Mat getlut(int* hist) {
 	//积分直方图
-	int addArray[256];
+	int addArray[256] = { 0 };
 	addArray[0] = hist[0];
 	for (int i = 1; i < 256; i++) {
 		addArray[i] = addArray[i - 1] + hist[i];
@@ -61,6 +61,7 @@ Mat getlut(int* hist) {
 	uchar* p = lut.ptr();
 	for (int i = 0; i < 256; i++) {
 		p[i] = addArray[i] / addArray[255] * 255;
+
 	}
 	return lut;
 }
