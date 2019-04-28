@@ -9,9 +9,8 @@ using namespace std;
 using namespace cv;
 void getStatData(Mat src, int* hist, float* ave, float* var) {
 	float average = 0, variance = 0;
-	int channels = src.channels();
 	int nRows = src.rows;
-	int nCols = src.cols * channels;
+	int nCols = src.cols;
 	if (src.isContinuous()) {//是否在内存中连续存储，若连续则读一大长条内存就能读入整张图片
 		nCols *= nRows;
 		nRows = 1;
@@ -33,7 +32,6 @@ void getStatData(Mat src, int* hist, float* ave, float* var) {
 	}
 	variance /= src.rows * src.cols;
 	*ave = average; *var = variance;
-	cout << "图片的全局平均值为" << average << "，方差为" << variance << endl;
 }
 
 void printHist(Mat src, int* hist){
@@ -74,13 +72,17 @@ Mat global_equalize(Mat src) {
 }
 
 Mat local_equalization(Mat src, int size) {
-	int nRows = src.rows - size + 1;
-	int nCols = src.cols - size + 1;
+	int nRows = src.rows - size + 1;    //298...
+	int nCols = src.cols - size + 1;    //252...
 	int hist[256] = { 0 }, addedHist[256] = { 0 };
+	float x, y;
 	Mat equalizedMat(nRows, nCols, CV_8U);
 	uchar *p, *q;
 	for (int j = 0; j < nCols; j++) {
-		for (int i = 0; i < nRows; i++) { //i行j列
+		memset(hist, 0, 256 * sizeof(int));
+		memset(addedHist, 0, 256 * sizeof(int));
+		for (int i = 0; i < nRows; i++) { //新图像的i行j列
+			/////////////////////////////
 			if (i == 0) {
 				for (int a = 0; a < size; a++) {
 					p = src.ptr<uchar>(a);
@@ -92,15 +94,28 @@ Mat local_equalization(Mat src, int size) {
 			}
 			else {  //方块向下平移的方法
 				p = src.ptr<uchar>(i - 1);
-				q = src.ptr<uchar>(i + size);
+				q = src.ptr<uchar>(i + size - 1);
 				for (int a = 0; a < size; a++) {
 					hist[p[j + a]]--;
 					hist[q[j + a]]++;
 				}
 			}
-			p = equalizedMat.ptr<uchar>(i);
-			interHist(hist, addedHist, p[j]);
-			p[j] = 255.0 * addedHist[p[j]] / size / size;
+			p = src.ptr<uchar>(i + (size - 1) / 2);
+			q = equalizedMat.ptr<uchar>(i);
+			interHist(hist, addedHist);
+			q[j] = 255.0 * addedHist[p[j + (size - 1) / 2]] / size / size;
+
+			///////////////////////////////
+			//memset(hist, 0, 256 * sizeof(int));
+			//memset(addedHist, 0, 256 * sizeof(int));
+			//Rect r(j, i, size, size);
+			//Mat small = src(r);
+			//getStatData(small, hist, &x, &y);
+			//p = small.ptr<uchar>((size + 1) / 2);
+			//q = equalizedMat.ptr<uchar>(i);
+			//interHist(hist, addedHist, p[(size + 1) / 2]);
+			//q[j] = 255.0 * addedHist[p[(size + 1) / 2]] / size / size;
+			////////////////////////////////
 		}
 	}
 	return equalizedMat;
@@ -115,16 +130,23 @@ int main()
 	double t = (double)getTickCount();
 	int hist[256] = { 0 };
 	getStatData(image, hist, &average, &variance);
+	cout << "图片的全局平均值为" << average << "，方差为" << variance << endl;
 	printHist(image, hist);
 	t = ((double)getTickCount() - t) / getTickFrequency();
 	cout << "此段程序用时为" << t << "s" << endl;
 	waitKey(0);
-	cout << "//////////////////////////全局直方图均衡化////////////////////////////" << endl;
+	cout << "///////////////////////////全局直方图均衡化/////////////////////////////" << endl;
+	t = (double)getTickCount();
 	Mat result1 = global_equalize(image);
+	t = ((double)getTickCount() - t) / getTickFrequency();
+	cout << "此段程序用时为" << t << "s" << endl;
 	imshow("Global equalization", result1);
 	waitKey(0);
-	cout << "////////////////////////////局部图像增强//////////////////////////////" << endl;
+	cout << "/////////////////////////////局部图像增强///////////////////////////////" << endl;
+	t = (double)getTickCount();
 	Mat result2 = local_equalization(image, 5);
+	t = ((double)getTickCount() - t) / getTickFrequency();
+	cout << "此段程序用时为" << t << "s" << endl;
 	imshow("Local equalization", result2);
 	waitKey(0);
 }
