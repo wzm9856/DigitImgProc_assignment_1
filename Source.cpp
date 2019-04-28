@@ -49,35 +49,61 @@ void printHist(Mat src, int* hist){
 	imshow("Histgraph", histgraph);
 }
 
-void interHist(int* hist, int* addedHist) {
+void interHist(int* hist, int* addedHist, int dst = 255) {
 	//积分直方图
 	addedHist[0] = hist[0];
-	for (int i = 1; i < 256; i++) {
+	for (int i = 1; i < dst + 1; i++) {
 		addedHist[i] = addedHist[i - 1] + hist[i];
 	}
 }
-Mat getlut(int* addedHist) {
-	//转换到调色盘
-	Mat lut(1, 256, CV_8UC1);
-	uchar* p = lut.ptr();
-	for (int i = 0; i < 256; i++) {
-		p[i] = 255.0 * addedHist[i] / addedHist[255];
-		cout << "addedHist" << i << ":" << addedHist[i] << endl;
-		cout << "p" << i << ": " << int(p[i]) << endl;
-	}
-	return lut;
-}
 
-Mat equalization(Mat src) {
+Mat global_equalize(Mat src) {
 	//基础的全局直方图均衡化程序
 	float average, variance; int hist[256] = { 0 }, addedHist[256] = { 0 };
 	getStatData(src, hist, &average, &variance);
 	//printHist(src, hist);
 	interHist(hist, addedHist);
-	Mat newLookUpTable = getlut(addedHist);
+	Mat newLookUpTable(1, 256, CV_8UC1);
+	uchar* p = newLookUpTable.ptr();
+	for (int i = 0; i < 256; i++) {
+		p[i] = 255.0 * addedHist[i] / addedHist[255];
+	}
 	Mat res(src.rows, src.cols, src.type());
 	LUT(src, newLookUpTable, res);
 	return res;
+}
+
+Mat local_equalization(Mat src, int size) {
+	int nRows = src.rows - size + 1;
+	int nCols = src.cols - size + 1;
+	int hist[256] = { 0 }, addedHist[256] = { 0 };
+	Mat equalizedMat(nRows, nCols, CV_8U);
+	uchar *p, *q;
+	for (int j = 0; j < nCols; j++) {
+		for (int i = 0; i < nRows; i++) { //i行j列
+			if (i == 0) {
+				for (int a = 0; a < size; a++) {
+					p = src.ptr<uchar>(a);
+					for (int b = 0; b < size; b++) {
+						hist[p[j + b]]++;
+						//j是准备填入的像素的列，b为偏移量，直到区域的最右
+					}
+				}
+			}
+			else {  //方块向下平移的方法
+				p = src.ptr<uchar>(i - 1);
+				q = src.ptr<uchar>(i + size);
+				for (int a = 0; a < size; a++) {
+					hist[p[j + a]]--;
+					hist[q[j + a]]++;
+				}
+			}
+			p = equalizedMat.ptr<uchar>(i);
+			interHist(hist, addedHist, p[j]);
+			p[j] = 255.0 * addedHist[p[j]] / size / size;
+		}
+	}
+	return equalizedMat;
 }
 
 int main()
@@ -93,8 +119,12 @@ int main()
 	t = ((double)getTickCount() - t) / getTickFrequency();
 	cout << "此段程序用时为" << t << "s" << endl;
 	waitKey(0);
-	Mat result1 = equalization(image);
+	cout << "//////////////////////////全局直方图均衡化////////////////////////////" << endl;
+	Mat result1 = global_equalize(image);
 	imshow("Global equalization", result1);
 	waitKey(0);
-	return 0;
+	cout << "////////////////////////////局部图像增强//////////////////////////////" << endl;
+	Mat result2 = local_equalization(image, 5);
+	imshow("Local equalization", result2);
+	waitKey(0);
 }
